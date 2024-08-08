@@ -23,6 +23,7 @@ pub const NUMBER_OF_STARS: usize = 10;
 pub const STAR_SIZE: f32 = 30.0;
 pub const HALF_STAR_SIZE: f32 = STAR_SIZE / 2.0;
 pub const STAR_SPAWN_TIME: f32 = 1.0;
+pub const ENEMY_SPAWN_TIME: f32 = 5.0;
 
 pub fn run_app() {
     App::new()

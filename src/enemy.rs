@@ -1,18 +1,19 @@
-use bevy::app::{ Plugin, Startup, Update };
+use bevy::app::{Plugin, Startup, Update};
 use bevy::asset::AssetServer;
-use bevy::audio::{ AudioBundle, AudioSource };
+use bevy::audio::{AudioBundle, AudioSource};
 use bevy::ecs::component::Component;
 use bevy::ecs::query::With;
-use bevy::ecs::system::{ Commands, Query, Res };
-use bevy::math::{ vec2, vec3, Vec2 };
+use bevy::ecs::system::{Commands, Query, Res};
+use bevy::math::{vec2, vec3, Vec2};
 
+use bevy::prelude::{ResMut, Resource};
 use bevy::sprite::SpriteBundle;
-use bevy::time::Time;
+use bevy::time::{Time, Timer, TimerMode};
 use bevy::transform::components::Transform;
-use bevy::window::{ PrimaryWindow, Window };
+use bevy::window::{PrimaryWindow, Window};
 use rand::random;
 
-use crate::{ ENEMY_SPEED, HALF_ENEMY_SIZE, NUMBER_OF_ENEMIES };
+use crate::{ENEMY_SPAWN_TIME, ENEMY_SPEED, HALF_ENEMY_SIZE, NUMBER_OF_ENEMIES};
 
 #[derive(Component)]
 pub struct Enemy {
@@ -26,14 +27,17 @@ impl Plugin for EnemyPlugin {
         app.add_systems(Startup, spawn_enemies)
             .add_systems(Update, enemy_movement)
             .add_systems(Update, update_enemy_direction)
-            .add_systems(Update, confine_enemy_movement);
+            .add_systems(Update, confine_enemy_movement)
+            .init_resource::<EnemySpawnTimer>()
+            .add_systems(Update, tick_enemy_spawn_timer)
+            .add_systems(Update, spawn_enemy_over_time);
     }
 }
 
 pub fn spawn_enemies(
     mut commands: Commands<'_, '_>,
     window_query: Query<&Window, With<PrimaryWindow>>,
-    asset_server: Res<AssetServer>
+    asset_server: Res<AssetServer>,
 ) {
     let window = window_query.get_single().unwrap();
 
@@ -65,7 +69,7 @@ pub fn update_enemy_direction(
     mut enemy_query: Query<(&Transform, &mut Enemy)>,
     window_query: Query<&Window, With<PrimaryWindow>>,
     asset_server: Res<AssetServer>,
-    mut commands: Commands
+    mut commands: Commands,
 ) {
     let window = window_query.get_single().unwrap();
 
@@ -91,7 +95,11 @@ pub fn update_enemy_direction(
             let sound_effect_1 = asset_server.load::<AudioSource>("audio/pluck_001.ogg");
             let sound_effect_2 = asset_server.load::<AudioSource>("audio/pluck_002.ogg");
 
-            let sound_effect = if random::<f32>() > 0.5 { sound_effect_1 } else { sound_effect_2 };
+            let sound_effect = if random::<f32>() > 0.5 {
+                sound_effect_1
+            } else {
+                sound_effect_2
+            };
             commands.spawn(AudioBundle {
                 source: sound_effect,
                 ..Default::default()
@@ -102,7 +110,7 @@ pub fn update_enemy_direction(
 
 pub fn confine_enemy_movement(
     mut enemy_query: Query<&mut Transform, With<Enemy>>,
-    window_query: Query<&Window, With<PrimaryWindow>>
+    window_query: Query<&Window, With<PrimaryWindow>>,
 ) {
     let window = window_query.get_single().unwrap();
     for mut transform in enemy_query.iter_mut() {
@@ -118,5 +126,46 @@ pub fn confine_enemy_movement(
         if transform.translation.y > window.height() - HALF_ENEMY_SIZE {
             transform.translation.y = window.height() - HALF_ENEMY_SIZE;
         }
+    }
+}
+
+#[derive(Resource)]
+pub struct EnemySpawnTimer {
+    pub timer: Timer,
+}
+
+impl Default for EnemySpawnTimer {
+    fn default() -> Self {
+        EnemySpawnTimer {
+            timer: Timer::from_seconds(ENEMY_SPAWN_TIME, TimerMode::Repeating),
+        }
+    }
+}
+
+pub fn tick_enemy_spawn_timer(mut enemy_spawn_timer: ResMut<EnemySpawnTimer>, time: Res<Time>) {
+    enemy_spawn_timer.timer.tick(time.delta());
+}
+
+pub fn spawn_enemy_over_time(
+    mut commands: Commands,
+    window_query: Query<&Window, With<PrimaryWindow>>,
+    asset_server: Res<AssetServer>,
+    enemy_spawn_timer: ResMut<EnemySpawnTimer>,
+) {
+    if enemy_spawn_timer.timer.finished() {
+        let window = window_query.get_single().unwrap();
+        let random_x = random::<f32>() * window.width();
+        let random_y = random::<f32>() * window.height();
+
+        commands.spawn((
+            SpriteBundle {
+                transform: Transform::from_xyz(random_x, random_y, 0.0),
+                texture: asset_server.load("sprites/ball_red_large.png"),
+                ..Default::default()
+            },
+            Enemy {
+                direction: vec2(random::<f32>(), random::<f32>()).normalize(),
+            },
+        ));
     }
 }

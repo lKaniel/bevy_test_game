@@ -27,18 +27,6 @@ impl Plugin for StarPlugin {
     }
 }
 
-#[derive(Resource)]
-pub struct StarSpawnTimer {
-    pub timer: Timer,
-}
-
-impl Default for StarSpawnTimer {
-    fn default() -> Self {
-        StarSpawnTimer {
-            timer: Timer::from_seconds(STAR_SPAWN_TIME, TimerMode::Repeating),
-        }
-    }
-}
 
 #[derive(Component)]
 pub struct Star {}
@@ -62,6 +50,19 @@ pub fn spawn_stars(
             },
             Star {},
         ));
+    }
+}
+
+#[derive(Resource)]
+pub struct StarSpawnTimer {
+    pub timer: Timer,
+}
+
+impl Default for StarSpawnTimer {
+    fn default() -> Self {
+        StarSpawnTimer {
+            timer: Timer::from_seconds(STAR_SPAWN_TIME, TimerMode::Repeating),
+        }
     }
 }
 
